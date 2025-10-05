@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique @db.VarChar(20)
+  full_name     String?
+  email         String   @unique
+  password      String
+  photo_profile String?
+  banner        String?
+  bio           String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  created_threads Thread[] @relation("ThreadsCreatedBy")
+  created_replies Reply[]  @relation("RepliesCreatedBy")
+  created_likes   Like[]   @relation("LikesCreatedBy")
+
+  followers Follow[] @relation("Followers")
+  following Follow[] @relation("Followings")
+
+  passwordResetToken PasswordResetToken? @relation("PasswordResetTokenUser")
+
+  user_notifications      Notification[] @relation("UserNotifications")
+  user_notifications_from Notification[] @relation("NotificationsFromUser")
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId Int  @unique
+  user   User @relation("PasswordResetTokenUser", fields: [userId], references: [id])
+}
+
+model Thread {
+  id         Int      @id @default(autoincrement())
+  title      String
+  content    String
+  image      String?
+  created_at DateTime @default(now())
+  created_by Int
+  updated_at DateTime @updatedAt
+
+  author       User           @relation("ThreadsCreatedBy", fields: [created_by], references: [id])
+  replies      Reply[]        @relation("ThreadReplies")
+  likes        Like[]         @relation("ThreadLikes")
+  notification Notification[] @relation("NotificationInThread")
+}
+
+model Reply {
+  id         Int      @id @default(autoincrement())
+  thread_id  Int
+  image      String?
+  content    String
+  created_at DateTime @default(now())
+  created_by Int
+  updated_at DateTime @updatedAt
+
+  author User   @relation("RepliesCreatedBy", fields: [created_by], references: [id])
+  thread Thread @relation("ThreadReplies", fields: [thread_id], references: [id])
+  likes  Like[] @relation("ReplyLikes")
+}
+
+model Like {
+  id         Int      @id @default(autoincrement())
+  thread_id  Int?
+  reply_id   Int?
+  created_at DateTime @default(now())
+  created_by Int
+  updated_at DateTime @updatedAt
+
+  author User    @relation("LikesCreatedBy", fields: [created_by], references: [id])
+  thread Thread? @relation("ThreadLikes", fields: [thread_id], references: [id])
+  reply  Reply?  @relation("ReplyLikes", fields: [reply_id], references: [id])
+
+  @@unique([thread_id, created_by])
+  @@unique([reply_id, created_by])
+}
+
+model Follow {
+  id           Int      @id @default(autoincrement())
+  following_id Int
+  follower_id  Int
+  created_at   DateTime @default(now())
+
+  following User @relation("Followings", fields: [following_id], references: [id])
+  follower  User @relation("Followers", fields: [follower_id], references: [id])
+
+  @@unique([following_id, follower_id])
+}
+
+model Notification {
+  id      Int    @id @default(autoincrement())
+  type    String
+  message String
+
+  user_id      Int
+  from_user_id Int
+  thread_id    Int?
+
+  created_at DateTime @default(now())
+  read       Boolean  @default(false)
+
+  user   User    @relation("UserNotifications", fields: [user_id], references: [id])
+  from   User    @relation("NotificationsFromUser", fields: [from_user_id], references: [id])
+  thread Thread? @relation("NotificationInThread", fields: [thread_id], references: [id])
+}
